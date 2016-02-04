@@ -1,0 +1,10 @@
+.committed
+junk*
+.merkle
+.posted
+*.swp
+tmp
+.wrapped
+*ZZZ
+.sharedev
+*.bak
