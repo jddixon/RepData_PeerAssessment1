@@ -8,14 +8,67 @@ output:
 
 ## Loading and preprocessing the data
 
+Project data was supplied as a aip file `activity.zip` which was unzipped
+manually to yield `activity.csv`.
 
+```{r loading}
+data <- read.csv("activity.csv")
+
+#  Just a simple comment.
+#` A backticked comment
+#' An SQUOTEd comment
+```
 
 ## What is mean total number of steps taken per day?
 
 
+```{r histogram}
+require{dplyr}
+require(ggplot2)
+
+stepsPerDay      <- aggregate(data=data, steps ~ date, FUN = sum)
+stepsPerDay$date <- as.Date(stepsPerDay$date)
+
+ggplot(data=stepsPerDay, aes(steps)) 	           + 
+    xlab('Steps per Day') 		           + 
+    ylab('Number of Days with That Number of Steps')	   +
+    ggtitle('Steps per Day in Period of Interest') + 
+    geom_histogram(bins=100)
+
+```
+
+The figure above shows how many days in the period of interest have step 
+counts in various buckets.
+
+```{r meanAndMedian} 
+meanStepsPerDay  <- mean(stepsPerDay$steps)
+medianStepsPerDay <- median(stepsPerDay$steps)
+
+```
+
+We can see from the above that the mean number of steps per day is
+`r sprintf("%.0f", meanStepsPerDay)` and the median is `r medianStepsPerDay`.
 
 ## What is the average daily activity pattern?
 
+```{r dailyActivity}
+
+data          <- mutate(data, hour = as.integer(0.001 + interval / 100))
+data$interval <- (data$interval %% 60) / 5
+data          <- select(date, hour, interval, steps)
+
+data$date     <- as.factor(data$date)
+data$hour     <- as.factor(data$hour)
+data$interval <- as.factor(data$interval)	# steps in 5-minute period
+
+# This is now tidy and in the long form.
+
+aggData       <- group_by(data=data, date, hour, interval) %>% 
+                     summarise(stepsInInterval=sum(steps)
+
+
+
+```
 
 
 ## Imputing missing values
