@@ -1,6 +1,6 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+output:
   html_document:
     keep_md: true
 ---
@@ -11,68 +11,114 @@ output:
 Project data was supplied as a aip file `activity.zip` which was unzipped
 manually to yield `activity.csv`.
 
-```{r loading}
-data <- read.csv("activity.csv")
+```{r loadAndPrep}
+require(dplyr)
+require(ggplot2)
 
-#  Just a simple comment.
-#` A backticked comment
-#' An SQUOTEd comment
+# The 'stringsAsFactors' bit makes the date field a string, which may be
+# a bit silly.
+# columns are date, interval, steps)
+data <- read.csv("activity.csv", stringsAsFactors=FALSE)
+
+# This doesn't get used exactly in this form.
+naMap <- is.na(data$steps)	# a vector of 17568 elements, 2304 of them TRUE
+
+# hour is zero-based, slot it one-based :-(
+data2          <- mutate(data, 
+                   hour = as.integer((0.001 + interval) / 100),
+                   slot = 1 + (interval %% 100) / 5 )
+
+data3          <- select(data2, date, hour, slot, steps)
+data3$date     <- as.Date(data3$date)
+
+avgBySlot      <- select(data3, slot, steps) %>%
+                  group_by(slot)             %>% 
+                  summarize(meanSteps=mean(steps, na.rm=TRUE))
+
+avgByHour      <- select(data3, hour, steps) %>%
+                  group_by(hour)             %>% 
+                  summarize(meanSteps=mean(steps, na.rm=TRUE))
+
+
 ```
 
 ## What is mean total number of steps taken per day?
 
 
 ```{r histogram}
-require{dplyr}
-require(ggplot2)
 
-stepsPerDay      <- aggregate(data=data, steps ~ date, FUN = sum)
-stepsPerDay$date <- as.Date(stepsPerDay$date)
+perDay         <- select(data3, date, steps) %>% 
+                  group_by(s.factor(date))  %>%
+                  summarize(totalSteps=sum(steps, na.rm=TRUE))
 
-ggplot(data=stepsPerDay, aes(steps)) 	           + 
-    xlab('Steps per Day') 		           + 
+ggplot(data=perDay, aes(totalSteps)) 	           +
+    xlab('Steps per Day') 		           +
     ylab('Number of Days with That Number of Steps')	   +
-    ggtitle('Steps per Day in Period of Interest') + 
+    ggtitle('Steps per Day in Period of Interest') +
     geom_histogram(bins=100)
 
-```
-
-The figure above shows how many days in the period of interest have step 
-counts in various buckets.
-
-```{r meanAndMedian} 
-meanStepsPerDay  <- mean(stepsPerDay$steps)
-medianStepsPerDay <- median(stepsPerDay$steps)
+meanSteps   <- sprintf("%.0f", mean(perDay$totalSteps))
+medianSteps <- sprintf("%.0f", median(perDay$totalSteps))
 
 ```
 
-We can see from the above that the mean number of steps per day is
-`r sprintf("%.0f", meanStepsPerDay)` and the median is `r medianStepsPerDay`.
+The figure above shows how many days in the period of interest have step
+counts in various ranges (buckets).
+
+The mean number of steps per day is `r meanSteps` and the median is 
+`r medianSteps`.
 
 ## What is the average daily activity pattern?
 
+This is understood to be the average across all 60 or so days in the period
+for which we have data.  There are 288 = 12x24 5-minute intervals in each
+day; this is the number on the x-axis in the graph.
+
 ```{r dailyActivity}
 
-data          <- mutate(data, hour = as.integer(0.001 + interval / 100))
-data$interval <- (data$interval %% 60) / 5
-data          <- select(date, hour, interval, steps)
+# Add a column converting hour and slot to 'daySlot', the [1..288] index 
+# of this particular 5-minute slot in the day
 
-data$date     <- as.factor(data$date)
-data$hour     <- as.factor(data$hour)
-data$interval <- as.factor(data$interval)	# steps in 5-minute period
+data4  <- mutate(data3, daySlot= (hour * 12) + slot)
 
-# This is now tidy and in the long form.
+data5  <- select(data4, daySlot, steps) %>% 
+          group_by(daySlot)             %>%
+          summarize(meanSteps = mean(steps, na.rm=TRUE))
 
-aggData       <- group_by(data=data, date, hour, interval) %>% 
-                     summarise(stepsInInterval=sum(steps)
+plot(data5$daySlot, data5$meanSteps, type='l', 
+       main='Typical Daily Activity (Steps)',
+       xlab='5-minute interval [1:288]',
+       ylab='Average Number of Steps in Interval')
 
-
+maxMeanSteps <- max(data5$meanSteps)
 
 ```
 
+The maximum averagenumber of steps in any 5-minute interval was 
+`r sprintf("%.2f" , maxMeanSteps)`.
 
 ## Imputing missing values
+
+### Calculate and Report Total Number of Missing Values
+```{r imputation}
+
+nbrMissing <- sum(is.na(data$steps))
+
+```
+
+There were `r nbrMissing` missing values (NA step counts) in the dataset.
+
+### Devise a Strategy for Filling in Missing Values
+
+### Create a New Dataset With Missing Values Replaced
+
+### Make a Histogram of Total Steps Taken Each Day
+
+### Calculate and Report Mean and Median
+
+### Effect of Imputing on Estimates of Total Daily Steps
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
