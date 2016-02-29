@@ -28,7 +28,7 @@ We massage the data a bit to make processing simpler.
 naMap <- is.na(data$steps)	# a vector of 17568 elements, 2304 of them TRUE
 
 # hour is zero-based, slot is one-based :-(
-data2          <- mutate(data, 
+data2          <- mutate(data,
                    hour = as.integer((0.001 + interval) / 100),
                    slot = 1 + (interval %% 100) / 5 )
 
@@ -36,11 +36,11 @@ data3          <- select(data2, date, hour, slot, steps)
 data3$date     <- as.Date(data3$date)
 
 avgBySlot      <- select(data3, slot, steps) %>%
-                  group_by(slot)             %>% 
+                  group_by(slot)             %>%
                   summarize(meanSteps=mean(steps, na.rm=TRUE))
 
 avgByHour      <- select(data3, hour, steps) %>%
-                  group_by(hour)             %>% 
+                  group_by(hour)             %>%
                   summarize(meanSteps=mean(steps, na.rm=TRUE))
 
 # DEBUG
@@ -50,7 +50,7 @@ avgPerDay      <- 288 * avgPerSlot
 
 ```
 
-So the average number of steps in any given slot is `r avgPerSlot`, which 
+So the average number of steps in any given slot is `r avgPerSlot`, which
 gives an average of `r avgPerDay` steps per day.
 
 ## What is mean total number of steps taken per day?
@@ -58,7 +58,7 @@ gives an average of `r avgPerDay` steps per day.
 
 ```{r histogram}
 
-perDay         <- select(data3, date, steps) %>% 
+perDay         <- select(data3, date, steps) %>%
                   group_by(as.factor(date))  %>%
                   summarize(totalSteps=sum(steps, na.rm=TRUE))
 
@@ -76,35 +76,35 @@ medianSteps <- sprintf("%.0f", medianStepsPerDay)
 ```
 
 The figure above shows how many days in the period of interest have step
-counts in various ranges (buckets).  
+counts in various ranges (buckets).
 
-The mean number of steps per day is `r meanSteps` and the median is 
+The mean number of steps per day is `r meanSteps` and the median is
 `r medianSteps`.  These numbers suggest that the subject of the experiment
 is attempting to hit the magic target of ten thousand steps a day.
 
 ## What is the average daily activity pattern?
 
-The 'average daily activity pattern' is understood here to be the average 
-for each of the 5-minute intervals 
+The 'average daily activity pattern' is understood here to be the average
+for each of the 5-minute intervals
 across all 60 or so days in the period
 for which we have data.  There are 288 = 12x24 such 5-minute intervals in each
 day; this is the number on the x-axis in the graph.  There is a sharp peak in
-activity just after the 100th interval, which is around 500 minutes into the 
+activity just after the 100th interval, which is around 500 minutes into the
 day, suggesting that the subject went walking or running at around 08:20 in
 the morning.
 
 ```{r dailyActivity}
 
-# Add a column converting hour and slot to 'daySlot', the [1..288] index 
+# Add a column converting hour and slot to 'daySlot', the [1..288] index
 # of this particular 5-minute slot in the day
 
 data4  <- mutate(data3, daySlot= (hour * 12) + slot)
 
-data5  <- select(data4, daySlot, steps) %>% 
+data5  <- select(data4, daySlot, steps) %>%
           group_by(daySlot)             %>%
           summarize(meanSteps = mean(steps, na.rm=TRUE))
 
-plot(data5$daySlot, data5$meanSteps, type='l', 
+plot(data5$daySlot, data5$meanSteps, type='l',
        main='Typical Daily Activity (Steps)',
        xlab='5-minute interval [1:288]',
        ylab='Average Number of Steps in Interval')
@@ -113,7 +113,7 @@ maxMeanSteps <- max(data5$meanSteps)
 
 ```
 
-The maximum average number of steps in any 5-minute interval was 
+The maximum average number of steps in any 5-minute interval was
 `r sprintf("%.2f" , maxMeanSteps)`.
 
 ## Imputing missing values
@@ -130,7 +130,7 @@ There were `r nbrMissing` missing values (NA step counts) in the dataset.
 ### Devise a Strategy for Filling in Missing Values
 
 The simplest approach to filling in any missing values is to just replace any
-NA values with the average number of steps per 5-minute interval for the 
+NA values with the average number of steps per 5-minute interval for the
 entire dataset.
 
 ```{r AvgStepsPerInterval}
@@ -153,7 +153,7 @@ data6$steps[is.na(data6$steps)] <- avgStepsPerInterval
 
 ```{r histogram2}
 
-perDay2         <- select(data6, date, steps) %>% 
+perDay2         <- select(data6, date, steps) %>%
                   group_by(as.factor(date))  %>%
                   summarize(totalSteps=sum(steps, na.rm=TRUE))
 
@@ -172,17 +172,42 @@ medianSteps2 <- sprintf("%.0f", medianStepsPerDay2)
 
 ### Calculate and Report Mean and Median
 
-After imputing missing values, the mean number of steps per day is 
-`r meanSteps2` and the median is `r medianSteps2`.  
+After imputing missing values, the mean number of steps per day is
+`r meanSteps2` and the median is `r medianSteps2`.
 
 ### Effect of Imputing on Estimates of Total Daily Steps
 
-Imputing missing data increased the mean and median steps per day by a 
+Imputing missing data increased the mean and median steps per day by a
 significant amount, in fact by more than 10%.  This is largely because the
 NAs were not randomly distributed.  In fact in the activity data set all
 of the `steps` values for the first and last days were NA.  In practical
-use these two days should have been simply ignored.  
+use these two days should have been simply ignored.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
+```{r differences}
+WEEKDAYS <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+
+# data3 is <date, hour, slot, steps>
+
+dataB  <- mutate(data3,
+		daySlot   = (hour * 12) + slot,
+		isWeekDay = factor(weekdays(date) %in% WEEKDAYS,
+			levels=c(FALSE,TRUE), labels=c('weekend', 'weekday')))
+
+dataC  <- select(dataB, daySlot, isWeekDay, steps) %>%
+          group_by(isWeekDay, daySlot)             %>%
+          summarize(meanSteps = mean(steps, na.rm=TRUE))
+
+ggplot(data=dataC, aes(x=daySlot, y=meanSteps))                   + 		
+       geom_line() + 
+       ggtitle('Typical Daily Activity (Steps)')     +
+       xlab('5-minute interval [1:288]')             +
+       ylab('Average Number of Steps in Interval')   +
+       facet_wrap(~isWeekDay)
+
+```
+
+From the graphs it would appear that weekend perods of exercise tend
+to start a little later, are somewhat less intense, and are more dispersed.
